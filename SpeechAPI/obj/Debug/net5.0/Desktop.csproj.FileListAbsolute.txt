@@ -1,0 +1,15 @@
+/Users/rolin/Desktop/bin/Debug/net5.0/Desktop.deps.json
+/Users/rolin/Desktop/bin/Debug/net5.0/Desktop.runtimeconfig.json
+/Users/rolin/Desktop/bin/Debug/net5.0/Desktop.runtimeconfig.dev.json
+/Users/rolin/Desktop/bin/Debug/net5.0/Desktop.dll
+/Users/rolin/Desktop/bin/Debug/net5.0/ref/Desktop.dll
+/Users/rolin/Desktop/bin/Debug/net5.0/Desktop.pdb
+/Users/rolin/Desktop/obj/Debug/net5.0/Desktop.csprojAssemblyReference.cache
+/Users/rolin/Desktop/obj/Debug/net5.0/Desktop.GeneratedMSBuildEditorConfig.editorconfig
+/Users/rolin/Desktop/obj/Debug/net5.0/Desktop.AssemblyInfoInputs.cache
+/Users/rolin/Desktop/obj/Debug/net5.0/Desktop.AssemblyInfo.cs
+/Users/rolin/Desktop/obj/Debug/net5.0/Desktop.csproj.CoreCompileInputs.cache
+/Users/rolin/Desktop/obj/Debug/net5.0/Desktop.dll
+/Users/rolin/Desktop/obj/Debug/net5.0/ref/Desktop.dll
+/Users/rolin/Desktop/obj/Debug/net5.0/Desktop.pdb
+/Users/rolin/Desktop/obj/Debug/net5.0/Desktop.genruntimeconfig.cache
