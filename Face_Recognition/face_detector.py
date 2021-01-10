@@ -35,10 +35,6 @@ class FaceDetector:
 
             # Re-initialize tracker
             template = self.reference
-            # plt.imshow(template, cmap='gray')
-            # plt.show()
-            # w = self.aligned_image_size//2
-            # h = self.aligned_image_size//2
             win =  self.tm_window_size
             w = self.aligned_image_size
             h = self.aligned_image_size
@@ -48,12 +44,6 @@ class FaceDetector:
             top_left = max_loc
             bottom_right = (max_loc[0]+w, max_loc[1]+h)
 
-            # top_left_x = max(max_loc[0] - w, 0)
-            # top_left_y = max(max_loc[1] - h, 0)
-            # bottom_right_x = min(max_loc[0] + w - 1, image.shape[0] - 1)
-            # bottom_right_y = min(max_loc[1] + h - 1, image.shape[1] - 1)
-            # top_left = (top_left_x, top_left_y)
-            # bottom_right = (bottom_right_x, bottom_right_y)
             cv2.rectangle(image, top_left, bottom_right, 255, 2)
             # image2 = image3[ top_left_y:bottom_right_y, top_left_x:bottom_right_x, :]
             image2 = image3[top_left[1]:bottom_right[1],top_left[0]:bottom_right[0],:]
@@ -108,10 +98,3 @@ class FaceDetector:
         right = min(face_rect[0] + face_rect[2] - 1, image.shape[1] - 1)
         return image[top:bottom, left:right, :]
 
-# img = plt.imread("/Users/rolin/Desktop/Projcv/exe04/supplementary_material/datasets/training_data/Nancy_Sinatra/0001.jpg")
-# face = FaceDetector()
-# # m = face.detect_face(img)
-# n = face.track_face(img)
-# # print(n)
-# # m = face.track_face(img2)
-# #
