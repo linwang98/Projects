@@ -5,10 +5,10 @@ import os
 import random
 from scipy import spatial
 from collections import Counter
-from sklearn.preprocessing import normalize
 from sklearn.cluster import KMeans
 from sklearn.neighbors import NearestNeighbors
-import matplotlib.pyplot as plt
+from scipy.spatial import distance
+
 
 # FaceNet to extract face embeddings.
 class FaceNet():
@@ -40,7 +40,7 @@ class FaceRecognizer():
 
 
     # Prepare FaceRecognizer; specify all parameters for face identification.指定用于面部识别的所有参数。
-    def __init__(self, num_neighbours=11, max_distance=0.8, min_prob=0.5):
+    def __init__(self, num_neighbours=11, max_distance=0.8, min_prob=0.45):
         #super(FaceRecognizer, self).__init__()
         # ToDo: Prepare FaceNet and set all parameters for kNN.准备FaceNet并设置kNN的所有参数。
         # The underlying gallery: class labels and embeddings.类标签和嵌入。
@@ -69,56 +69,37 @@ class FaceRecognizer():
     # ToDo:extracts its embedding, and stores it as a training sample in the gallery.
     # ToDo: Update gallery for face identification with a new face with labeled identity.
     def update(self, face, label):
-        self.embeddings = self.facenet.predict(face)
-        # training sample
-        self.labels = label
-        self.save()
+
+        self.embeddings = np.append(self.embeddings,[self.facenet.predict(face)],axis=0)
+        self.labels.append(label)
+        # self.save()
 
 
     # ToDo: Infer the identity for a new face.
     #  assigns a class label to an aligned face using k-NN.
     def predict(self, face):
         #brute-force search
-        #??????
-        m = self.embeddings.shape
-
+        # Closed-Set
         embeddings = self.facenet.predict(face)
-        dic = np.hstack((embeddings,self.embeddings))
-        nbrs = NearestNeighbors(n_neighbors=self.num_neighbours, algorithm='brute').fit(dic)
-        distances, indices = nbrs.kneighbors(embeddings, self.embeddings)
-        print(distances)
-
-        #Closed-Set
-        d = []
-        for i in range(len(self.embeddings)):
-        #     # Face Verification
-
-            embeddings = normalize(embeddings, norm='l2')
-            self.embeddings[i] = normalize(self.embeddings[i], norm='l2')
-            distance = spatial.distance.euclidean(embeddings, self.embeddings[i])
-        #     # distance = (np.sqrt(face - self.embeddings[i])**2)/(np.sqrt(face)**2+np.sqrt(self.embeddings[i]**2))
-            d.append(distance)
-        idx = (-d).argsort()[: self.num_neighbours]
-        label = self.labels[idx]
-        b = Counter(label)
+        dic = np.append(self.embeddings,[embeddings],axis=0)
+        nbrs = NearestNeighbors(n_neighbors=self.num_neighbours+1, algorithm='brute').fit(dic)
+        distances, indices = nbrs.kneighbors(dic)
+        # dindx = np.nonzero(distances[-1])
+        dist = distances[-1,1]
+        idx = indices[-1,1:]
+        label = []
+        for i in range(len(idx)):
+            index = idx[i]
+            label.append(self.labels[index])
         # majority of the k nearest neighbors
-        predict = Counter(label).most_common(1)[0][0]
+        predict_label = Counter(label).most_common(1)[0][0]
         n = Counter(label).most_common(1)[0][1]
         posterior_probability = n/self.num_neighbours
-        ddd = []
-        #
-        # distance of the face x to the predicted class Ci.
-        for i in range(len(label)):
-            if(label[i]==predict):
-                dd = d[i]
-                ddd.append(dd)
-        dd = np.min(np.array(ddd))
         # Open-Set
+        if (dist > self.max_distance or posterior_probability < self.min_prob ):
+            predict_label = 'unknow'
+        return predict_label,posterior_probability,dist
 
-        if (dd > self.max_distance or posterior_probability < self.min_prob ):
-            predict = 'unknow'
-        return label,posterior_probability,distances
-        #return predicted_label, prob, dist_to_prediction
 
 
 # The FaceClustering class enables unsupervised clustering of face images according to their identity and
@@ -131,15 +112,14 @@ class FaceClustering:
         self.facenet = FaceNet()
         # The underlying gallery: embeddings without class labels.没有类标签的嵌入。
         self.embeddings = np.empty((0, self.facenet.get_embedding_dimensionality()))
-
         # Number of cluster centers for k-means clustering.用于k均值聚类的聚类中心的数量。
         self.num_clusters = num_clusters
         # Cluster centers.
         self.cluster_center = np.empty((num_clusters, self.facenet.get_embedding_dimensionality()))
         # Cluster index associated with the different samples.与不同样本关联的聚类索引。
-        self.cluster_membership = []
-
+        self.cluster_membership = np.empty((0, self.facenet.get_embedding_dimensionality()))
         # Maximum number of iterations for k-means clustering.k均值聚类的最大迭代次数。
+        self.face = []
         self.max_iter = max_iter
 
         # Load face clustering from pickle file if available.
@@ -148,42 +128,81 @@ class FaceClustering:
 
     # Save the trained model as a pickle file.
     def save(self):
-        with open("clustering_gallery.pkl", 'w') as f:
+        with open("clustering_gallery.pkl", 'wb') as f:
             pickle.dump((self.embeddings, self.num_clusters, self.cluster_center, self.cluster_membership), f)
 
     # Load trained model from a pickle file.
     def load(self):
-        with open("clustering_gallery.pkl", 'r') as f:
+        with open("clustering_gallery.pkl", 'rb') as f:
             (self.embeddings, self.num_clusters, self.cluster_center, self.cluster_membership) = pickle.load(f)
 
     # ToDo: extracts and stores an embedding for a new face.
     # ToDo: Update gallery for clustering with a new face.
     def update(self, face):
-        self.embeddings = self.facenet.predict(face)
+        # self.embeddings = self.facenet.predict(face)
 
-    
+        self.embeddings = np.append(self.embeddings,[self.facenet.predict(face)],axis=0)
+        self.face.append(face)
 
-    # ToDo: Perform k-means clustering.
+    # ToDo: Perform k-means clustering.//
     def fit(self):
+        n = np.shape(self.embeddings)[0]
+        dim = self.facenet.get_embedding_dimensionality()
+        idx = np.random.randint(n, size=self.num_clusters)
+        center_initial = self.embeddings[idx,:]
+        center_a = center_initial[0]
+        center_b = center_initial[1]
+        # center_a = np.empty((0, dim))
+        # center_b = np.empty((0, dim))
+        # center_a = np.append(center_a, [center_initial[0]], axis=0)
+        # center_b = np.append(center_b, [center_initial[1]], axis=0)
+        #shape [50,2]
+        dd = np.empty((n, self.num_clusters))
+        #shape [2,0,128]
+        # cluster_group = np.empty((self.num_clusters,0, self.facenet.get_embedding_dimensionality()))
+        # for i in range(self.num_clusters):
+        #     cluster_group[i] = np.empty((0, self.facenet.get_embedding_dimensionality()))
+        cluster_group_a = np.empty((0, dim))
+        cluster_group_b = np.empty((0, dim))
+        #[25,2,128]
+        kmeans = KMeans(n_clusters=self.num_clusters, init = 'random').fit(self.embeddings)
+        cc = kmeans.cluster_centers_
+        for i in range(self.max_iter):
+            self.cluster_membership = []
+            for j in range(n):
+                dd[j][0] = distance.euclidean(self.embeddings[j], center_a)
+                dd[j][1] = distance.euclidean(self.embeddings[j], center_b)
+                if (dd[j][0]<dd[j][1]):
+                    cluster_group_a = np.append(cluster_group_a, [self.embeddings[j]], axis=0)
+                    membership = '0'
+                else:
+                    cluster_group_b = np.append(cluster_group_b,  [self.embeddings[j]], axis=0)
+                    membership = '1'
+                self.cluster_membership.append(membership)
+            center_a = np.mean(cluster_group_a,axis=0)
+            center_b = np.mean(cluster_group_b,axis=0)
+            # center_a = np.append(center_a, [np.mean(cluster_group_a,axis=0)], axis=0)
+            # center_b = np.append(center_b, [np.mean(cluster_group_b,axis=0)], axis=0)
+            cluster_group_a = np.empty((0, self.facenet.get_embedding_dimensionality()))
+            cluster_group_b = np.empty((0, self.facenet.get_embedding_dimensionality()))
+            self.cluster_center = [center_a, center_b]
+            # self.cluster_center = []
+            # self.cluster_membership = []
+        # self.cluster_membership = ['1','2']
 
-        self.kmeans = KMeans(n_clusters = self.num_clusters, init=random, random_state=0).fit(self.embeddings)
-
-        self.labels = self.kmeans.labels_
-        self.cluster_center = self.kmeans.cluster_centers_
-
-
+        # print(self.center)
 
     # ToDo: Predict nearest cluster center for a given face.
     #  re-identification with a closed-set protocol.
     def predict(self, face):
-        predict = self.kmeans.predict(face)
 
-        return predict
+        embeddings = self.facenet.predict(face)
+        #[50,2]
+        distance = np.empty((1, self.num_clusters))
+        for i in range(self.num_clusters):
+            distance[0][i] = np.linalg.norm( embeddings - self.cluster_center[i])
 
-# img = plt.imread("/Users/rolin/Desktop/Projcv/exe04/supplementary_material/datasets/training_data/Nancy_Sinatra/0036.jpg")
-# img = img[0:224,50:274,:]
-# recognizer = FaceRecognizer()
-# a ,b = recognizer.predict(img)
-# print(a)
-# #
-# fr = FaceRecognizer()
+        distances_to_clusters = distance
+        predicted_label = np.argmin(distance)
+        return predicted_label, distances_to_clusters
+
